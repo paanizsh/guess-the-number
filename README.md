@@ -29,12 +29,12 @@ Or play manually against the host yourself (see [Manual play](#manual-play) belo
 
 ```
 ┌─────────────────────────┐        X-API-Key header        ┌─────────────────────────┐
-│     Player  :8001        │ ─────── POST /games ─────────▶ │      Host  :8000         │
-│                          │ ──── POST /games/{id}/guess ──▶ │                          │
-│  binary_search.py        │ ◀──── lower / higher / correct─ │  picks secret [1–10000]  │
-│  game_client.py          │ ──── DELETE /games/{id} ──────▶ │  validates API key       │
-└─────────────────────────┘                                  └─────────────────────────┘
-           │                                                             │
+│     Player  :8001       │ ─────── POST /games ─────────▶ │      Host  :8000        │
+│                         │ ──── POST /games/{id}/guess ──▶│                         │
+│  binary_search.py       │ ◀──── lower / higher / correct─│  picks secret [1–10000] │
+│  game_client.py         │ ──── DELETE /games/{id} ──────▶│  validates API key      │
+└─────────────────────────┘                                └─────────────────────────┘
+           │                                                            │
            └─────────────────── game-network (bridge) ──────────────────┘
 ```
 
