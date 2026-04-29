@@ -1,0 +1,1 @@
+# pydantic-settings: HOST_URL, PLAYER_USERNAME, PLAYER_PASSWORD

@@ -1,0 +1,1 @@
+# pydantic-settings: JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES
