@@ -25,13 +25,13 @@ Or play manually against the host yourself — see [Manual play](#manual-play) b
 ## Architecture
 
 ```
-┌─────────────────────────┐      X-API-Key header       ┌─────────────────────────┐
-│     Player  :8001        │ ──── POST /games ──────────▶ │      Host  :8000         │
-│                          │ ── POST /games/{id}/guess ──▶ │                          │
-│  binary_search.py        │ ◀── lower / higher / correct─ │  picks secret [1–10000]  │
-│  game_client.py          │ ── DELETE /games/{id} ──────▶ │  validates API key       │
-└─────────────────────────┘                               └─────────────────────────┘
-           │                                                          │
+┌─────────────────────────┐      X-API-Key header          ┌─────────────────────────┐
+│     Player  :8001        │ ──── POST /games ──────────▶  │      Host  :8000        │
+│                          │ ── POST /games/{id}/guess ──▶ │                         │
+│  binary_search.py        │ ◀── lower / higher / correct─ │  picks secret [1–10000] │
+│  game_client.py          │ ── DELETE /games/{id} ──────▶ │  validates API key      │
+└─────────────────────────┘                                └─────────────────────────┘
+           │                                                         │
            └──────────────── game-network (bridge) ──────────────────┘
 ```
 
@@ -214,46 +214,6 @@ game-host    (internal ingress — not reachable from the internet)
 
 **Container Apps** — sits between the two. Kubernetes under the hood, but fully managed. Built-in service discovery, automatic HTTPS, scale to zero, and per-service ingress control (internal vs external) made it the right fit here.
 
-### Deploy from scratch
-
-**Prerequisites:** Azure CLI, Docker Desktop, an Azure subscription.
-
-```bash
-# 1. Create infrastructure
-az group create --name guess-the-number-rg --location eastus
-az acr create --resource-group guess-the-number-rg --name gtnregistry --sku Basic --admin-enabled true
-az extension add --name containerapp --upgrade
-az containerapp env create --name guess-env --resource-group guess-the-number-rg --location eastus
-
-# 2. Build and push images (cross-compile for Azure's amd64 runtime)
-docker build --platform linux/amd64 -t gtnregistry.azurecr.io/game-host:latest ./host
-docker build --platform linux/amd64 -t gtnregistry.azurecr.io/game-player:latest ./player
-az acr login --name gtnregistry
-docker push gtnregistry.azurecr.io/game-host:latest
-docker push gtnregistry.azurecr.io/game-player:latest
-
-# 3. Deploy host (internal — no public URL)
-az containerapp create --name game-host --resource-group guess-the-number-rg \
-  --environment guess-env --image gtnregistry.azurecr.io/game-host:latest \
-  --registry-server gtnregistry.azurecr.io --target-port 8000 \
-  --ingress internal --env-vars API_KEY=secret-api-key --min-replicas 1
-
-# 4. Get host's internal address
-HOST_FQDN=$(az containerapp show --name game-host --resource-group guess-the-number-rg \
-  --query properties.configuration.ingress.fqdn -o tsv)
-
-# 5. Deploy player (external — public HTTPS URL)
-az containerapp create --name game-player --resource-group guess-the-number-rg \
-  --environment guess-env --image gtnregistry.azurecr.io/game-player:latest \
-  --registry-server gtnregistry.azurecr.io --target-port 8001 \
-  --ingress external --env-vars API_KEY=secret-api-key HOST_URL=https://$HOST_FQDN \
-  --min-replicas 1
-
-# 6. Get public URL and test
-PLAYER_URL=$(az containerapp show --name game-player --resource-group guess-the-number-rg \
-  --query properties.configuration.ingress.fqdn -o tsv)
-curl -X POST https://$PLAYER_URL/play
-```
 
 
 ## What's next
