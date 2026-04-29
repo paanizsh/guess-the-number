@@ -1,7 +1,7 @@
 # Pydantic schemas: GuessResult, GuessRequest, GuessResponse, Token, UserCreate
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GuessResult(str, Enum):
@@ -19,7 +19,7 @@ class GameCreatedResponse(BaseModel):
 
 class GuessRequest(BaseModel):
     """What the player sends when making a guess."""
-    guess: int
+    guess: int = Field(..., ge=1, le=10_000, description="Your guess must be between 1 and 10,000.")
 
 
 class GuessResponse(BaseModel):
