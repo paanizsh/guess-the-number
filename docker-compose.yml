@@ -2,23 +2,33 @@ version: "3.9"
 
 services:
   host:
-    build: ./host
+    build: ./host          
     container_name: game-host
     ports:
-      - "8000:8000"
+      - "8000:8000"        
+    environment:
+      - API_KEY=${API_KEY:-secret-api-key}   # read from .env, fallback to default
     networks:
       - game-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      retries: 5
+      start_period: 10s
 
   player:
     build: ./player
     container_name: game-player
     ports:
       - "8001:8001"
+    environment:
+      - HOST_URL=http://game-host:8000   
+      - API_KEY=${API_KEY:-secret-api-key}
     depends_on:
-      - host
+      host:
+        condition: service_healthy       
     networks:
       - game-network
 
 networks:
   game-network:
-    driver: bridge
+    driver: bridge   
