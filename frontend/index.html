@@ -1,1 +1,278 @@
-<!-- Single-page UI: POST /play, animate guess history -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guess the Number</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── PwC corporate palette ──
+       #d04a02  PwC Orange  (primary)
+       #eb8c00  Amber
+       #db536a  Rose
+       #a32020  Garnet
+       #e0301e  Red
+    */
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1a0f0a;
+      color: #f0ebe6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: #d04a02;
+    }
+    header p  { margin-top: 8px; color: #9e7e6e; font-size: 0.9rem; }
+    header p strong { color: #eb8c00; }
+
+    .card {
+      background: #2a1a12;
+      border: 1px solid #3d2518;
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: #1f1108;
+      border-radius: 8px;
+      padding: 12px 8px;
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #7a5545;
+      margin-bottom: 5px;
+    }
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .stat-value.blue { color: #eb8c00; }
+
+    /* ── Button ── */
+    #play-btn {
+      width: 100%;
+      padding: 13px;
+      background: #d04a02;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 24px;
+    }
+    #play-btn:hover:not(:disabled) { background: #b83e02; }
+    #play-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Guess list ── */
+    .list-header {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #7a5545;
+      margin-bottom: 10px;
+    }
+    #guess-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .guess-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1f1108;
+      border-radius: 7px;
+      padding: 9px 12px;
+      opacity: 0;
+      transform: translateY(5px);
+      animation: fadeIn 0.2s ease forwards;
+    }
+    @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+
+    .g-num   { font-size: 0.72rem; color: #6b4535; width: 20px; text-align: right; flex-shrink: 0; }
+    .g-value { font-size: 0.95rem; font-weight: 600; width: 56px; flex-shrink: 0; }
+    .g-bar-wrap { flex: 1; height: 5px; background: #2a1a12; border-radius: 3px; overflow: hidden; }
+    .g-bar  { height: 100%; border-radius: 3px; }
+    .badge  {
+      font-size: 0.7rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+    /* higher → amber; lower → rose; correct → garnet-green mix (keep green for UX clarity) */
+    .badge-higher  { background: #3d2500; color: #eb8c00; }
+    .badge-lower   { background: #3a1020; color: #db536a; }
+    .badge-correct { background: #1f0f0f; color: #f97316; border: 1px solid #d04a02; }
+
+    /* ── Result banner ── */
+    #result-banner {
+      display: none;
+      margin-top: 18px;
+      padding: 14px 18px;
+      border-radius: 8px;
+      background: #3d1800;
+      border: 1px solid #d04a02;
+      color: #eb8c00;
+      font-weight: 600;
+      text-align: center;
+      animation: fadeIn 0.25s ease forwards;
+    }
+
+    /* ── Error ── */
+    #error-msg {
+      display: none;
+      margin-top: 14px;
+      padding: 11px 14px;
+      border-radius: 8px;
+      background: #2a0808;
+      border: 1px solid #a32020;
+      color: #db536a;
+      font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Guess the Number</h1>
+  <p>Binary search · finds any number in [1 – 10 000] in at most <strong>14 guesses</strong></p>
+</header>
+
+<div class="card">
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Secret</div>
+      <div class="stat-value blue" id="stat-secret">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Guesses</div>
+      <div class="stat-value" id="stat-guesses">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Max</div>
+      <div class="stat-value" id="stat-max">14</div>
+    </div>
+  </div>
+
+  <button id="play-btn">▶ Play a game</button>
+
+  <div class="list-header">Guess history</div>
+  <div id="guess-list"></div>
+
+  <div id="result-banner"></div>
+  <div id="error-msg"></div>
+
+</div>
+
+<script>
+  const PLAYER_URL = 'https://game-player.bluehill-6a78b6ff.eastus.azurecontainerapps.io/play';
+  const DELAY      = 130; // ms between each row appearing
+
+  const playBtn      = document.getElementById('play-btn');
+  const guessList    = document.getElementById('guess-list');
+  const statSecret   = document.getElementById('stat-secret');
+  const statGuesses  = document.getElementById('stat-guesses');
+  const resultBanner = document.getElementById('result-banner');
+  const errorMsg     = document.getElementById('error-msg');
+
+  let lastData = null;
+
+  function reset() {
+    guessList.innerHTML = '';
+    resultBanner.style.display = 'none';
+    errorMsg.style.display     = 'none';
+    statSecret.textContent  = '—';
+    statGuesses.textContent = '—';
+  }
+
+  function addRow(index, guess, result) {
+    const pct      = Math.round((guess / 10000) * 100);
+    const barColor = result === 'correct' ? '#d04a02'
+                   : result === 'higher'  ? '#eb8c00' : '#db536a';
+
+    const row = document.createElement('div');
+    row.className = 'guess-row';
+    row.style.animationDelay = `${index * DELAY}ms`;
+    row.innerHTML = `
+      <span class="g-num">${index + 1}</span>
+      <span class="g-value">${guess.toLocaleString()}</span>
+      <div class="g-bar-wrap">
+        <div class="g-bar" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <span class="badge badge-${result}">${result}</span>
+    `;
+    guessList.appendChild(row);
+    setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }),
+               index * DELAY + 40);
+  }
+
+  playBtn.addEventListener('click', async () => {
+    reset();
+    playBtn.disabled    = true;
+    playBtn.textContent = '⏳ Playing…';
+    lastData = null;
+
+    try {
+      const resp = await fetch(PLAYER_URL, { method: 'POST' });
+      if (!resp.ok) throw new Error(`Player returned ${resp.status}`);
+      lastData = await resp.json();
+
+      lastData.guess_history.forEach((item, i) =>
+        addRow(i, item.guess, item.result)
+      );
+
+      const delay = lastData.guess_history.length * DELAY + 260;
+      setTimeout(() => {
+        statSecret.textContent  = lastData.secret_number.toLocaleString();
+        statGuesses.textContent = `${lastData.total_attempts} / ${lastData.max_possible_attempts}`;
+        resultBanner.textContent =
+          `🎯 Found ${lastData.secret_number.toLocaleString()} in ` +
+          `${lastData.total_attempts} guess${lastData.total_attempts === 1 ? '' : 'es'} — ` +
+          `${lastData.max_possible_attempts - lastData.total_attempts} to spare!`;
+        resultBanner.style.display = 'block';
+      }, delay);
+
+    } catch (err) {
+      errorMsg.textContent = `Error: ${err.message}. Make sure docker compose is running.`;
+      errorMsg.style.display = 'block';
+    } finally {
+      const wait = (lastData?.guess_history?.length ?? 0) * DELAY + 300;
+      setTimeout(() => {
+        playBtn.disabled    = false;
+        playBtn.textContent = '▶ Play again';
+      }, wait);
+    }
+  });
+</script>
+</body>
+</html>
