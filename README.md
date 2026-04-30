@@ -143,7 +143,7 @@ API_KEY=my-strong-secret
 The binary search algorithm is unit-tested in isolation — no Docker, no running server required.
 
 ```bash
-python3 -m pytest tests/test_binary_search.py
+python3 -m pytest player/tests
 ```
 
 The test file uses a `fake_ask` function instead of real HTTP calls. It mimics the host's behaviour in pure Python: return `"correct"` when the guess matches the secret, `"higher"` when the secret is above it, and `"lower"` when below. Because `binary_search.py` only depends on a callable, swapping the real HTTP client for this fake requires zero changes to the algorithm.
@@ -164,7 +164,7 @@ The boundary values in the second test are deliberate — `1` and `10000` are wh
 
 Both services are operated by the same person and communicate over a private Docker network. In this context a shared API key passed as `X-API-Key` is the appropriate choice: it is simple, has zero dependencies, and keeps the focus on the game logic rather than auth infrastructure.
 
-The conscious trade-off: API key auth provides no per-user identity and no token expiry. The natural next step would be JWT — each player would register, receive a signed token with an expiry, and the host would verify the signature without any database lookup. This would be the right upgrade if multiple independent players needed to interact with the same host, or if the host were exposed beyond a private network.
+The conscious trade-off: API key auth provides no per-user identity and no token expiry. The natural next step would be JWT, in which each player would register, receive a signed token with an expiry, and the host would verify the signature without any database lookup. This would be the right upgrade if multiple independent players needed to interact with the same host, or if the host were exposed beyond a private network.
 
 ### Algorithm — Binary Search
 
@@ -205,15 +205,6 @@ game-host    (internal ingress — not reachable from the internet)
 | **Azure Container Registry** | Stores Docker images (`game-host`, `game-player`) |
 | **Container Apps Environment** | Shared private network — both apps discover each other by name |
 | **Container Apps** | Serverless runtime for each microservice — scales to zero when idle |
-
-### Why Container Apps over the alternatives
-
-**ACI (Container Instances)** — no service discovery between containers, no HTTPS out of the box. Good for a single container, awkward for two services that communicate.
-
-**AKS (Kubernetes Service)** — full Kubernetes control but requires managing a cluster. Overkill for two microservices.
-
-**Container Apps** — sits between the two. Kubernetes under the hood, but fully managed. Built-in service discovery, automatic HTTPS, scale to zero, and per-service ingress control (internal vs external) made it the right fit here.
-
 
 
 ## What's next
